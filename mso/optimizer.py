@@ -108,7 +108,7 @@ class BasePSOptimizer:
         new_df.step = step
         self.best_fitness_history = pd.concat([self.best_fitness_history, new_df], sort=False)
 
-    def run(self, num_steps, num_track=10):
+    def run(self, num_steps, num_track=10, verbose=True):
         """
         The main optimization loop.
         :param num_steps: The number of update steps.
@@ -121,7 +121,8 @@ class BasePSOptimizer:
         for step in range(num_steps):
             self._update_best_fitness_history(step)
             max_fitness, min_fitness, mean_fitness = self._update_best_solutions(num_track)
-            print("Step %d, max: %.3f, min: %.3f, mean: %.3f" % (step, max_fitness, min_fitness, mean_fitness))
+            if verbose:
+                print("Step %d, max: %.3f, min: %.3f, mean: %.3f" % (step, max_fitness, min_fitness, mean_fitness))
             for swarm in self.swarms:
                 self._next_step_and_evaluate(swarm)
         return self.swarms
