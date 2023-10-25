@@ -9,13 +9,16 @@ import pandas as pd
 from rdkit import Chem, rdBase
 from mso.swarm import Swarm
 from mso.util import canonicalize_smiles
-rdBase.DisableLog('rdApp.error')
-logging.getLogger('tensorflow').disabled = True
+
+rdBase.DisableLog("rdApp.error")
+logging.getLogger("tensorflow").disabled = True
+
 
 class BasePSOptimizer:
     """
-        Base particle swarm optimizer class. It handles the optimization of a swarm object.
+    Base particle swarm optimizer class. It handles the optimization of a swarm object.
     """
+
     def __init__(self, swarms, inference_model, scoring_functions=None):
         """
 
@@ -83,11 +86,9 @@ class BasePSOptimizer:
         new_df.smiles = [sml for swarm in self.swarms for sml in swarm.smiles]
         new_df.fitness = [fit for swarm in self.swarms for fit in swarm.fitness]
         new_df.smiles = new_df.smiles.map(canonicalize_smiles)
-        self.best_solutions = self.best_solutions.append(new_df)
+        self.best_solutions = pd.concat([self.best_solutions, new_df])
         self.best_solutions = self.best_solutions.drop_duplicates("smiles")
-        self.best_solutions = self.best_solutions.sort_values(
-            "fitness",
-            ascending=False).reset_index(drop=True)
+        self.best_solutions = self.best_solutions.sort_values("fitness", ascending=False).reset_index(drop=True)
         self.best_solutions = self.best_solutions.iloc[:num_track]
         best_solutions_max = self.best_solutions.fitness.max()
         best_solutions_min = self.best_solutions.fitness.min()
@@ -105,7 +106,7 @@ class BasePSOptimizer:
         new_df.smiles = [swarm.best_smiles for swarm in self.swarms]
         new_df.swarm = [i for i in range(len(self.swarms))]
         new_df.step = step
-        self.best_fitness_history = self.best_fitness_history.append(new_df, sort=False)
+        self.best_fitness_history = pd.concat([self.best_fitness_history, new_df], sort=False)
 
     def run(self, num_steps, num_track=10):
         """
@@ -120,16 +121,28 @@ class BasePSOptimizer:
         for step in range(num_steps):
             self._update_best_fitness_history(step)
             max_fitness, min_fitness, mean_fitness = self._update_best_solutions(num_track)
-            print("Step %d, max: %.3f, min: %.3f, mean: %.3f"
-                  % (step, max_fitness, min_fitness, mean_fitness))
+            print("Step %d, max: %.3f, min: %.3f, mean: %.3f" % (step, max_fitness, min_fitness, mean_fitness))
             for swarm in self.swarms:
                 self._next_step_and_evaluate(swarm)
         return self.swarms
 
     @classmethod
-    def from_query(cls, init_smiles, num_part, num_swarms, inference_model,
-                   scoring_functions=None, phi1=2., phi2=2., phi3=2., x_min=-1.,
-                   x_max=1., v_min=-0.6, v_max=0.6, **kwargs):
+    def from_query(
+        cls,
+        init_smiles,
+        num_part,
+        num_swarms,
+        inference_model,
+        scoring_functions=None,
+        phi1=2.0,
+        phi2=2.0,
+        phi3=2.0,
+        x_min=-1.0,
+        x_max=1.0,
+        v_min=-0.6,
+        v_max=0.6,
+        **kwargs
+    ):
         """
         Classmethod to create a PSO instance with (possible) multiple swarms which particles are
         initialized at the position of the embedded input SMILES. All swarms are initialized at the
@@ -168,13 +181,29 @@ class BasePSOptimizer:
                 x_max=x_max,
                 phi1=phi1,
                 phi2=phi2,
-                phi3=phi3) for _ in range(num_swarms)]
+                phi3=phi3,
+            )
+            for _ in range(num_swarms)
+        ]
         return cls(swarms, inference_model, scoring_functions, **kwargs)
 
     @classmethod
-    def from_query_list(cls, init_smiles, num_part, num_swarms, inference_model,
-                        scoring_functions=None, phi1=2., phi2=2., phi3=2., x_min=-1.,
-                        x_max=1., v_min=-0.6, v_max=0.6, **kwargs):
+    def from_query_list(
+        cls,
+        init_smiles,
+        num_part,
+        num_swarms,
+        inference_model,
+        scoring_functions=None,
+        phi1=2.0,
+        phi2=2.0,
+        phi3=2.0,
+        x_min=-1.0,
+        x_max=1.0,
+        v_min=-0.6,
+        v_max=0.6,
+        **kwargs
+    ):
         """
         Classmethod to create a PSO instance with (possible) multiple swarms which particles are
         initialized at the position of the embedded input SMILES. Each swarms is  initialized at
@@ -206,23 +235,37 @@ class BasePSOptimizer:
         embedding = inference_model.seq_to_emb(init_smiles)
         swarms = []
         for i, sml in enumerate(init_smiles):
-            swarms.append(Swarm.from_query(
-                init_sml=sml,
-                init_emb=embedding[i],
-                num_part=num_part,
-                v_min=v_min,
-                v_max=v_max,
-                x_min=x_min,
-                x_max=x_max,
-                phi1=phi1,
-                phi2=phi2,
-                phi3=phi3))
+            swarms.append(
+                Swarm.from_query(
+                    init_sml=sml,
+                    init_emb=embedding[i],
+                    num_part=num_part,
+                    v_min=v_min,
+                    v_max=v_max,
+                    x_min=x_min,
+                    x_max=x_max,
+                    phi1=phi1,
+                    phi2=phi2,
+                    phi3=phi3,
+                )
+            )
 
         return cls(swarms, inference_model, scoring_functions, **kwargs)
 
     @classmethod
-    def from_swarm_dicts(cls, swarm_dicts, inference_model, scoring_functions=None, x_min=-1., x_max=1.,
-                         inertia_weight=0.9, phi1=2., phi2=2., phi3=2., **kwargs):
+    def from_swarm_dicts(
+        cls,
+        swarm_dicts,
+        inference_model,
+        scoring_functions=None,
+        x_min=-1.0,
+        x_max=1.0,
+        inertia_weight=0.9,
+        phi1=2.0,
+        phi2=2.0,
+        phi3=2.0,
+        **kwargs
+    ):
         """
         Classmethod to create a PSO instance from a list of dictionaries each defining an
         individual swarm.
@@ -235,20 +278,23 @@ class BasePSOptimizer:
         :param kwargs: additional parameters for the PSO class
         :return: A PSOptimizer instance.
         """
-        swarms = [Swarm.from_dict(
-            dictionary=swarm_dict,
-            x_min=x_min,
-            x_max=x_max,
-            inertia_weight=inertia_weight,
-            phi1=phi1,
-            phi2=phi2,
-            phi3=phi3
-        ) for swarm_dict in swarm_dicts]
+        swarms = [
+            Swarm.from_dict(
+                dictionary=swarm_dict,
+                x_min=x_min,
+                x_max=x_max,
+                inertia_weight=inertia_weight,
+                phi1=phi1,
+                phi2=phi2,
+                phi3=phi3,
+            )
+            for swarm_dict in swarm_dicts
+        ]
         return cls(swarms, inference_model, scoring_functions, **kwargs)
 
     def __getstate__(self):
         """dont pickle all swarms --> faster serialization/multiprocessing"""
-        return {k: v for k, v in self.__dict__.items() if k not in ('swarms',)}
+        return {k: v for k, v in self.__dict__.items() if k not in ("swarms",)}
 
 
 class ParallelSwarmOptimizer(BasePSOptimizer):
@@ -268,8 +314,8 @@ class ParallelSwarmOptimizer(BasePSOptimizer):
         smiles = self.infer_model.emb_to_seq(emb)
         x = self.infer_model.seq_to_emb(smiles)
         for i, swarm in enumerate(self.swarms):
-            swarm.smiles = smiles[i*num_part: (i+1)*num_part]
-            swarm.x = x[i*num_part: (i+1)*num_part]
+            swarm.smiles = smiles[i * num_part : (i + 1) * num_part]
+            swarm.x = x[i * num_part : (i + 1) * num_part]
             swarm = self.update_fitness(swarm)
 
     def run(self, num_steps, num_track=10):
@@ -285,11 +331,9 @@ class ParallelSwarmOptimizer(BasePSOptimizer):
         for step in range(num_steps):
             self._update_best_fitness_history(step)
             max_fitness, min_fitness, mean_fitness = self._update_best_solutions(num_track)
-            print("Step %d, max: %.3f, min: %.3f, mean: %.3f"
-                  % (step, max_fitness, min_fitness, mean_fitness))
+            print("Step %d, max: %.3f, min: %.3f, mean: %.3f" % (step, max_fitness, min_fitness, mean_fitness))
             self._next_step_and_evaluate()
         return self.swarms, self.best_solutions
-
 
 
 class MPPSOOptimizer(BasePSOptimizer):
@@ -298,6 +342,7 @@ class MPPSOOptimizer(BasePSOptimizer):
     swarms. Only works if the inference_model is a instance of the inference_server class in the
     CDDD package that rolls out calculations on multiple zmq servers (possibly on multiple GPUs).
     """
+
     # TODO: this is different from the base class, as run() does no initial evaluation but got the evaluate query method.
     def __init__(self, swarms, inference_model, scoring_functions=None, num_workers=1):
         """
@@ -336,14 +381,17 @@ class MPPSOOptimizer(BasePSOptimizer):
             end_time = time.time() - start_time
             max_fitness, min_fitness, mean_fitness = self._update_best_solutions(num_track)
             self._update_best_fitness_history(step)
-            print("Step %d, max: %.3f, min: %.3f, mean: %.3f, et: %.1f s"
-                  %(step, max_fitness, min_fitness, mean_fitness, end_time))
-            if (num_track == 1) & (self.best_solutions[:num_track].fitness.mean() == 1.):
+            print(
+                "Step %d, max: %.3f, min: %.3f, mean: %.3f, et: %.1f s"
+                % (step, max_fitness, min_fitness, mean_fitness, end_time)
+            )
+            if (num_track == 1) & (self.best_solutions[:num_track].fitness.mean() == 1.0):
                 break
-            elif self.best_solutions[:num_track].fitness.mean() == 1.:
+            elif self.best_solutions[:num_track].fitness.mean() == 1.0:
                 break
         pool.close()
         return self.swarms, self.best_solutions
+
 
 class MPPSOOptimizerManualScoring(MPPSOOptimizer):
     def __init__(self, swarms, inference_model, num_workers=1):
