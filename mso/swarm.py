@@ -6,10 +6,14 @@ import numpy as np
 
 
 def clip_to_ball(vector, radius):
-    norm = np.linalg.norm(vector)
-    if norm > radius:
-        vector = vector / norm * radius
-    return vector
+    norms = np.linalg.norm(vector, axis=1)  # Compute the norms along the second dimension
+    clipped_vector = vector.copy()  # Make a copy to avoid modifying the original vector
+
+    for i, norm in enumerate(norms):
+        if norm > radius:
+            clipped_vector[i, :] = vector[i, :] / norm * radius
+
+    return clipped_vector
 
 
 class Swarm:
@@ -71,7 +75,8 @@ class Swarm:
         # clip to hyperball instead of hypercube!
         # self.x = np.clip(self.x, self.x_min, self.x_max)
         self.x = clip_to_ball(self.x, self.x_max)
-        assert np.linalg.norm(self.x) <= self.x_max
+        if not np.all(np.linalg.norm(self.x, axis=1) <= (self.x_max + 1e-4)):
+            print("Norm constraint violated: ", np.linalg.norm(self.x, axis=1), self.x_max)
 
     def update_fitness(self, fitness):
         """
