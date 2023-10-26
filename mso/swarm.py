@@ -4,13 +4,21 @@ Module that defines the Swarm class used by the Particle Swarm Optimizer.
 import random
 import numpy as np
 
+
+def clip_to_ball(vector, radius):
+    norm = np.linalg.norm(vector)
+    if norm > radius:
+        vector = vector / norm * radius
+    return vector
+
+
 class Swarm:
     """
     Class that defines a Swarm that can be optimized by a PSOptimizer. Most PSO calculations are
     done in here.
     """
-    def __init__(self, smiles, x, v, x_min=-1., x_max=1.,
-                 inertia_weight=0.9, phi1=2., phi2=2., phi3=2.):
+
+    def __init__(self, smiles, x, v, x_min=-1.0, x_max=1.0, inertia_weight=0.9, phi1=2.0, phi2=2.0, phi3=2.0):
         """
         :param smiles: The SMILES that define the molecules at the positions of the particles of
             the swarm.
@@ -60,7 +68,10 @@ class Swarm:
         v_u3 = u3 * (np.array(random.choice(self.history_swarm_best_x)) - self.x)
         self.v = self.inertia_weight * self.v + v_u1 + v_u2 + v_u3
         self.x += self.v
-        self.x = np.clip(self.x, self.x_min, self.x_max)
+        # clip to hyperball instead of hypercube!
+        # self.x = np.clip(self.x, self.x_min, self.x_max)
+        self.x = clip_to_ball(self.x, self.x_max)
+        assert np.linalg.norm(self.x) <= self.x_max
 
     def update_fitness(self, fitness):
         """
@@ -80,22 +91,18 @@ class Swarm:
         self.particle_best_x = np.where(
             np.expand_dims(fitness, 1) > np.expand_dims(self.particle_best_fitness, 1),
             self.x.copy(),
-            self.particle_best_x
+            self.particle_best_x,
         )
 
         self.particle_best_fitness = np.where(
-            fitness > self.particle_best_fitness,
-            fitness,
-            self.particle_best_fitness
+            fitness > self.particle_best_fitness, fitness, self.particle_best_fitness
         )
 
     def __repr__(self):
-        return 'mso.swarm.Swarm num_part={} best_fitness={}'.format(self.num_part,
-                                                                    self.swarm_best_fitness)
+        return "mso.swarm.Swarm num_part={} best_fitness={}".format(self.num_part, self.swarm_best_fitness)
 
     @classmethod
-    def from_dict(cls, dictionary, x_min=-1., x_max=1.,
-                 inertia_weight=0.9, phi1=2., phi2=2., phi3=2.):
+    def from_dict(cls, dictionary, x_min=-1.0, x_max=1.0, inertia_weight=0.9, phi1=2.0, phi2=2.0, phi3=2.0):
         """
         Classmethod to create a Swarm instance from a dictionary. Can be used to reinitialize a
         Swarm with all important properties.
@@ -110,13 +117,13 @@ class Swarm:
         :param phi3: PSO hyperparamter.
         :return: A Swarm instance.
         """
-        particles = dictionary['particles']
-        smiles = [particle['smiles'] for particle in particles]
-        dscore = np.array([particle['dscore'] for particle in particles])
-        position = np.array([particle['x'] for particle in particles])
-        velocity = np.array([particle['v'] for particle in particles])
-        particle_best_x = np.array([particle['part_best_x'] for particle in particles])
-        particle_best_fitness = [particle['part_best_fitness'] for particle in particles]
+        particles = dictionary["particles"]
+        smiles = [particle["smiles"] for particle in particles]
+        dscore = np.array([particle["dscore"] for particle in particles])
+        position = np.array([particle["x"] for particle in particles])
+        velocity = np.array([particle["v"] for particle in particles])
+        particle_best_x = np.array([particle["part_best_x"] for particle in particles])
+        particle_best_fitness = [particle["part_best_fitness"] for particle in particles]
         swarm = Swarm(
             smiles=smiles,
             x=position,
@@ -126,14 +133,14 @@ class Swarm:
             inertia_weight=inertia_weight,
             phi1=phi1,
             phi2=phi2,
-            phi3=phi3
+            phi3=phi3,
         )
         swarm.particle_best_x = particle_best_x
-        #swarm.unscaled_scores = {score['name']:  score['unscaled'] for score in scores}
-        #swarm.scaled_scores = {score['name']: score['scaled'] for score in scores}
+        # swarm.unscaled_scores = {score['name']:  score['unscaled'] for score in scores}
+        # swarm.scaled_scores = {score['name']: score['scaled'] for score in scores}
         swarm.fitness = dscore
-        swarm.history_swarm_best_x = [np.array(el) for el in dictionary['best_positions']]
-        swarm.swarm_best_fitness = dictionary['best_fitness']
+        swarm.history_swarm_best_x = [np.array(el) for el in dictionary["best_positions"]]
+        swarm.swarm_best_fitness = dictionary["best_fitness"]
         swarm.particle_best_fitness = particle_best_fitness
         return swarm
 
@@ -175,24 +182,30 @@ class Swarm:
         """
         particles = []
         for i in range(self.num_part):
-            scores = [{'name': key,
-                       'scaled': float(self.scaled_scores[key][i]),
-                       'unscaled': float(self.unscaled_scores[key][i]),
-                       'desirability': float(self.desirability_scores[key][i])}
-                      for key in self.unscaled_scores.keys()]
-            particles.append({
-                "smiles": self.smiles[i],
-                "scores": scores,
-                "dscore": self.fitness[i],
-                "v": np.round(self.v[i], 3).tolist(),
-                "x": np.round(self.x[i], 3).tolist(),
-                "part_best_x": np.round(self.particle_best_x[i], 3).tolist(),
-                "part_best_fitness": self.particle_best_fitness[i]
-            })
+            scores = [
+                {
+                    "name": key,
+                    "scaled": float(self.scaled_scores[key][i]),
+                    "unscaled": float(self.unscaled_scores[key][i]),
+                    "desirability": float(self.desirability_scores[key][i]),
+                }
+                for key in self.unscaled_scores.keys()
+            ]
+            particles.append(
+                {
+                    "smiles": self.smiles[i],
+                    "scores": scores,
+                    "dscore": self.fitness[i],
+                    "v": np.round(self.v[i], 3).tolist(),
+                    "x": np.round(self.x[i], 3).tolist(),
+                    "part_best_x": np.round(self.particle_best_x[i], 3).tolist(),
+                    "part_best_fitness": self.particle_best_fitness[i],
+                }
+            )
 
         output = {
             "particles": particles,
             "best_positions": [np.round(score, 3).tolist() for score in self.history_swarm_best_x],
-            "best_fitness": self.swarm_best_fitness
+            "best_fitness": self.swarm_best_fitness,
         }
         return output
