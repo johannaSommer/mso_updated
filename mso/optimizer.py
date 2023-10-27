@@ -19,7 +19,7 @@ class BasePSOptimizer:
     Base particle swarm optimizer class. It handles the optimization of a swarm object.
     """
 
-    def __init__(self, swarms, inference_model, scoring_functions=None):
+    def __init__(self, swarms, inference_model, scoring_functions=None, reencode_output=True):
         """
 
         :param swarms: List of swarm objects each defining an individual particle swarm that
@@ -34,6 +34,7 @@ class BasePSOptimizer:
         self.swarms = swarms
         self.best_solutions = pd.DataFrame(columns=["smiles", "fitness"])
         self.best_fitness_history = pd.DataFrame(columns=["step", "swarm", "fitness"])
+        self.reencode_output = reencode_output
 
     def update_fitness(self, swarm):
         """
@@ -71,7 +72,8 @@ class BasePSOptimizer:
         swarm.next_step()
         smiles = self.infer_model.emb_to_seq(swarm.x)
         swarm.smiles = smiles
-        swarm.x = self.infer_model.seq_to_emb(swarm.smiles)
+        if self.reencode_output:
+            swarm.x = self.infer_model.seq_to_emb(swarm.smiles)
         swarm = self.update_fitness(swarm)
         return swarm
 
